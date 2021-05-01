@@ -15,6 +15,9 @@ object PlayJson extends ujson.AstTransformer[JsValue] {
     case JsObject(kvs) => transformObject(f, kvs)
     case JsString(s) => f.visitString(s, -1)
   }
+
+  override def transformYaml[T](j: JsValue, f: Visitor[_, T]): T = ???
+
   def visitArray(length: Int, index: Int) = new AstArrVisitor[Array](JsArray(_))
 
   def visitObject(length: Int, index: Int) = new AstObjVisitor[ArrayBuffer[(String, JsValue)]](JsObject(_))

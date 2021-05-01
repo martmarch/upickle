@@ -124,6 +124,8 @@ trait Api
     def transform[V](f: Visitor[_, V]): V = writer[T].transform(t, f)
     def to[V](f: Visitor[_, V]): V = transform(f)
     def to[V](implicit f: Reader[V]): V = transform(f)
+
+    override def transformYaml[T](f: Visitor[_, T]): T = ???
   }
   // End Api
 }

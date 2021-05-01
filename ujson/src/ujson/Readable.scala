@@ -5,12 +5,16 @@ import java.nio.channels.ReadableByteChannel
 import upickle.core.{Visitor, ObjArrVisitor}
 trait Readable {
   def transform[T](f: Visitor[_, T]): T
+  def transformYaml[T](f: Visitor[_, T]): T
 }
 
 object Readable extends ReadableLowPri{
   case class fromTransformer[T](t: T, w: Transformer[T]) extends Readable{
     def transform[T](f: Visitor[_, T]): T = {
       w.transform(t, f)
+    }
+    override def transformYaml[T](f: Visitor[_, T]): T = {
+      w.transformYaml(t, f)
     }
   }
   implicit def fromString(s: String): fromTransformer[String] = new fromTransformer(s, StringParser)
@@ -19,6 +23,12 @@ object Readable extends ReadableLowPri{
     override def transform[T](f: Visitor[_, T]) = {
       val inputStream = java.nio.file.Files.newInputStream(s)
       try InputStreamParser.transform(inputStream, f)
+      finally inputStream.close()
+    }
+
+    override def transformYaml[T](f: Visitor[_, T]): T = {
+      val inputStream = java.nio.file.Files.newInputStream(s)
+      try InputStreamParser.transformYaml(inputStream, f)
       finally inputStream.close()
     }
   }
@@ -30,5 +40,7 @@ object Readable extends ReadableLowPri{
 trait ReadableLowPri{
   implicit def fromReadable[T](s: T)(implicit conv: T => geny.Readable): Readable = new Readable{
     def transform[T](f: Visitor[_, T]): T = conv(s).readBytesThrough(InputStreamParser.transform(_, f))
+
+    override def transformYaml[T](f: Visitor[_, T]): T = conv(s).readBytesThrough(InputStreamParser.transformYaml(_, f))
   }
 }

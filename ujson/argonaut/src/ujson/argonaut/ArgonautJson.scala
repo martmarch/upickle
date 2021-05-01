@@ -35,4 +35,6 @@ object ArgonautJson extends ujson.AstTransformer[Json]{
   }
 
   def visitString(s: CharSequence, index: Int) = Json.jString(s.toString)
+
+  override def transformYaml[T](j: Json, f: Visitor[_, T]): T = ???
 }

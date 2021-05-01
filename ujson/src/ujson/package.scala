@@ -2,12 +2,16 @@ import upickle.core.NoOpVisitor
 
 package object ujson{
   def transform[T](t: Readable, v: upickle.core.Visitor[_, T]) = t.transform(v)
+  def transformYaml[T](t: Readable, v: upickle.core.Visitor[_, T]) = t.transformYaml(v)
 
   /**
     * Read the given JSON input as a JSON struct
     */
   def read(s: Readable, trace: Boolean = false): Value.Value =
     upickle.core.TraceVisitor.withTrace(trace, Value)(transform(s, _))
+
+  def readYaml(s: Readable, trace: Boolean = false): Value.Value =
+    upickle.core.TraceVisitor.withTrace(trace, Value)(transformYaml(s, _))
 
   def copy(t: Value.Value): Value.Value = transform(t, Value)
 

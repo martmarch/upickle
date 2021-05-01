@@ -4,8 +4,9 @@ package ujson
 
 import upickle.core.Util
 import upickle.core.{ObjArrVisitor, Visitor}
-
 import upickle.core.compat._
+
+import java.io.InputStream
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -111,6 +112,8 @@ sealed trait Value extends Readable with geny.Writable{
   def update(s: Value.Selector, f: Value => Value): Unit = s(this) = f(s(this))
 
   def transform[T](f: Visitor[_, T]) = Value.transform(this, f)
+  def transformYaml[T](f: Visitor[_, T]): T = ???
+
   override def toString = render()
   def render(indent: Int = -1, escapeUnicode: Boolean = false) = this.transform(StringRenderer(indent, escapeUnicode)).toString
 
@@ -228,6 +231,8 @@ object Value extends AstTransformer[Value]{
     */
   case class InvalidData(data: Value, msg: String)
     extends Exception(s"$msg (data: $data)")
+
+  override def transformYaml[T](j: Value, f: Visitor[_, T]): T = ???
 }
 
 case class Str(value: String) extends Value

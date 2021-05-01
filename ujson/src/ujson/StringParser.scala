@@ -26,4 +26,6 @@ private[ujson] final class StringParser[J](s: String) extends CharParser[J]{
 
 object StringParser extends Transformer[String]{
   def transform[T](j: String, f: Visitor[_, T]) = new StringParser(j).parse(f)
+
+  override def transformYaml[T](j: String, f: Visitor[_, T]): T = new StringParser(j).parseYaml(f)
 }

@@ -89,4 +89,6 @@ object IndexedValue extends Transformer[IndexedValue]{
 
     def visitString(s: CharSequence, i: Int) = IndexedValue.Str(i, s)
   }
+
+  override def transformYaml[T](j: IndexedValue, f: Visitor[_, T]): T = ???
 }

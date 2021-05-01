@@ -31,4 +31,6 @@ final class ByteBufferParser[J](src: ByteBuffer) extends ByteParser[J]{
 
 object ByteBufferParser extends Transformer[ByteBuffer]{
   def transform[T](j: ByteBuffer, f: Visitor[_, T]) = new ByteBufferParser(j).parse(f)
+
+  override def transformYaml[T](j: ByteBuffer, f: Visitor[_, T]): T = ???
 }

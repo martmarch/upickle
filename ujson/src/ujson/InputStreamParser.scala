@@ -2,8 +2,9 @@ package ujson
 
 import scala.annotation.{switch, tailrec}
 import java.nio.ByteBuffer
-
 import upickle.core.{BufferingInputStreamParser, ObjArrVisitor, Visitor}
+
+import java.io.InputStream
 /**
   * Parser that reads in bytes from an InputStream, buffering them in memory
   * until a `reset` call discards them.
@@ -25,4 +26,6 @@ object InputStreamParser extends Transformer[java.io.InputStream]{
     val p = new InputStreamParser[T](j)
     p.parse(f)
   }
+
+  override def transformYaml[T](j: InputStream, f: Visitor[_, T]): T = ???
 }

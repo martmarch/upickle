@@ -44,4 +44,6 @@ class Json4sJson(useBigDecimalForDouble: Boolean, useBigIntForLong: Boolean)
   }
 
   def visitString(s: CharSequence, index: Int) = JString(s.toString)
+
+  override def transformYaml[T](j: JValue, f: Visitor[_, T]): T = ???
 }
