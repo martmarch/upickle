@@ -1,6 +1,6 @@
 package ujson
 
-import upickle.core.{ArrVisitor, ObjVisitor}
+import upickle.core.{ArrVisitor, ObjVisitor, Visitor}
 
 import scala.scalajs.js
 
@@ -65,5 +65,7 @@ object WebJson extends ujson.Transformer[js.Any]{
 
     def visitString(s: CharSequence, index: Int) = s.toString.asInstanceOf[js.Any]
   }
+
+  override def transformYaml[T](j: js.Any, f: Visitor[_, T]): T = ???
 }
 

@@ -20,11 +20,15 @@ abstract class ElemParser[J] extends upickle.core.BufferingElemParser{
   private[this] val outputBuilder = new upickle.core.ElemBuilder()
 
   def requestUntilOrThrow(i: Int) = {
-    if (requestUntil(i)) throw new IncompleteParseException("exhausted input")
+    if (requestUntil(i))  -1
+    else 0
   }
   override def getElemSafe(i: Int): Elem = {
-    requestUntilOrThrow(i)
-    getElemUnsafe(i)
+    if (requestUntilOrThrow(i) == -1) {
+      java.lang.Character.MIN_VALUE
+    } else {
+      getElemUnsafe(i)
+    }
   }
 
   /**
@@ -525,6 +529,31 @@ abstract class ElemParser[J] extends upickle.core.BufferingElemParser{
     j + 1
   }
 
+  protected[this] final def parseStringSimpleYaml(i: Int): Int = {
+    var j = i
+    var c = elemOps.toUnsignedInt(getElemSafe(j))
+    while (c != ':') {
+      if (c < ' ') die(j, s"control char (${c}) in string")
+      if (c == '\\' || c > 127) return -1 - j
+      j += 1
+      c = elemOps.toUnsignedInt(getElemSafe(j))
+    }
+    j
+  }
+
+  protected[this] final def parseStringSimpleYamlValue(i: Int): Int = {
+    var j = i
+    var c = elemOps.toUnsignedInt(getElemSafe(j))
+    while (c != '\n') {
+      if (c < ' ') die(j, s"control char (${c}) in string")
+      if (c == '\\' || c > 127) return -1 - j
+      j += 1
+      c = elemOps.toUnsignedInt(getElemSafe(j))
+    }
+    j
+  }
+
+
   /**
     * Parse a string that is known to have escape sequences.
     */
@@ -591,11 +620,37 @@ abstract class ElemParser[J] extends upickle.core.BufferingElemParser{
     }
   }
 
+  protected[this] final def parseStringValueYaml(i: Int, stackHead: ObjArrVisitor[_, J]): Int = {
+
+    val k = parseStringSimpleYamlValue(i)
+    if (k >= 0) {
+      visitString(i, unsafeCharSeqForRange(i, k - i), stackHead)
+      k
+    } else {
+      val k2 = parseStringToOutputBuilder(i, k)
+      visitString(i, outputBuilder.makeString(), stackHead)
+      k2
+    }
+  }
+
   protected[this] final def parseStringKey(i: Int, stackHead: ObjArrVisitor[_, J]): Int = {
 
-    val k = parseStringSimple(i + 1)
+    val k = parseStringSimpleYaml(i)
     if (k >= 0) {
-      visitStringKey(i, unsafeCharSeqForRange(i + 1, k - i - 2), stackHead)
+      visitStringKey(i, unsafeCharSeqForRange(i, k - i - 1), stackHead)
+      k
+    } else {
+      val k2 = parseStringToOutputBuilder(i, k)
+      visitStringKey(i, outputBuilder.makeString(), stackHead)
+      k2
+    }
+  }
+
+  protected[this] final def parseStringKeyYaml(i: Int, stackHead: ObjArrVisitor[_, J]): Int = {
+
+    val k = parseStringSimpleYaml(i)
+    if (k >= 0) {
+      visitStringKey(i, unsafeCharSeqForRange(i, k - i), stackHead)
       k
     } else {
       val k2 = parseStringToOutputBuilder(i, k)
@@ -622,6 +677,65 @@ abstract class ElemParser[J] extends upickle.core.BufferingElemParser{
     obj.visitKeyValue(keyVisitor.visitString(s, i))
   }
 
+  protected[this] final def parseNestedYaml(state: Int,
+                                            i: Int,
+                                            stackHead: ObjArrVisitor[_, J],
+                                            stackTail: List[ObjArrVisitor[_, J]]) : (J, Int) = {
+    (getElemSafe(i): @switch) match{
+      case java.lang.Character.MIN_VALUE =>
+        tryCloseCollection(stackHead, stackTail, i).get
+      case ' ' | '\t' | '\r' | '\n' =>
+        parseNestedYaml(state, i + 1, stackHead, stackTail)
+
+      case _ if state == KEY || state == OBJBEG =>
+        val nextJ = try parseStringKeyYaml(i, stackHead) catch reject(i)
+        parseNestedYaml(COLON, nextJ, stackHead, stackTail)
+      case _ if state == DATA || state == ARRBEG =>
+        val nextJ = try parseStringValueYaml(i, stackHead) catch reject(i)
+        parseNestedYaml(KEY, nextJ, stackHead, stackTail)
+      case ':' =>
+        // we are in an object just after a key, expecting to see a colon.
+        state match{
+          case COLON => parseNestedYaml(DATA, i + 1, stackHead, stackTail)
+          case _ => dieWithFailureMessage(i, state)
+        }
+      case java.lang.Character.MIN_VALUE =>
+        tryCloseCollection(stackHead, stackTail, i).get
+      case _ => dieWithFailureMessage(i, state)
+
+    }
+  }
+
+  protected[this] final def parseTopLevel0Yaml(i: Int, facade: Visitor[_, J]): (J, Int) = {
+    (getElemSafe(i): @switch) match {
+      // ignore whitespace
+      case ' ' | '\t' | 'r' => parseTopLevel0Yaml(i + 1, facade)
+      case '\n' => parseTopLevel0Yaml(i + 1, facade)
+
+      // if we have a recursive top-level structure, we'll delegate the parsing
+      // duties to our good friend rparse().
+      case _ => parseNestedYaml(OBJBEG, i, facade.visitObject(-1, i), Nil)
+    }
+  }
+
+  protected[this] final def parseTopLevelYaml(i: Int, facade: Visitor[_, J]): (J, Int) = {
+    try parseTopLevel0Yaml(i, facade)
+    catch reject(i)
+  }
+
+  final def parseYaml(facade: Visitor[_, J]): J =  {
+    val (value, i) = parseTopLevelYaml(0, facade)
+    var j = i
+    while (!atEof(j)) {
+      (getElemSafe(i): @switch) match {
+        case '\n' | ' ' | '\t' | '\r' => j += 1
+        case _ => die(j, "expected whitespace or eof")
+      }
+    }
+    if (!atEof(j)) die(j, "expected eof")
+    close()
+    value
+  }
 
   protected[this] final def parseStringTopLevel(i: Int, facade: Visitor[_, J]): (J, Int) = {
 

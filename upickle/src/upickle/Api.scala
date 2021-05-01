@@ -37,6 +37,13 @@ trait Api
     TraceVisitor.withTrace(trace, reader[T])(s.transform(_))
   }
 
+  /**
+   * Reads the given JSON input into a Scala value
+   */
+  def readYaml[T: Reader](s: ujson.Readable, trace: Boolean = false): T = {
+    TraceVisitor.withTrace(trace, reader[T])(s.transformYaml(_))
+  }
+
   def reader[T: Reader] = implicitly[Reader[T]]
 
   /**
