@@ -22,6 +22,7 @@ object YamlTest extends TestSuite {
       val big = readYaml[Big](yamlExample)
       println(parsedYaml)
       println(big)
+      assert(big == Big("David","1500","Developer"))
     }
   }
 }
